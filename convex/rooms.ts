@@ -38,6 +38,27 @@ function assertPuzzle(puzzle: unknown) {
   }
 }
 
+function validateMessageChannel(puzzle: unknown, channel?: string) {
+  if (!channel) return undefined;
+  if (!puzzle || typeof puzzle !== "object" || !("entries" in puzzle)) {
+    throw new Error("Invalid puzzle.");
+  }
+  const entries = puzzle.entries;
+  if (
+    !Array.isArray(entries) ||
+    !entries.some(
+      (entry) =>
+        entry &&
+        typeof entry === "object" &&
+        "id" in entry &&
+        entry.id === channel,
+    )
+  ) {
+    throw new Error("Clue not found.");
+  }
+  return channel;
+}
+
 export const createRoom = mutation({
   args: {
     ...participantArgs,
@@ -221,25 +242,33 @@ export const updateCell = mutation({
 });
 
 export const getMessages = query({
-  args: { slug: v.string() },
-  handler: async (ctx, { slug }) => {
+  args: { slug: v.string(), channel: v.optional(v.string()) },
+  handler: async (ctx, { slug, channel }) => {
     if (!/^[a-zA-Z0-9_-]{20,64}$/.test(slug)) return [];
     const room = await ctx.db
       .query("rooms")
       .withIndex("by_slug", (q) => q.eq("slug", slug))
       .unique();
     if (!room) return [];
+    const normalizedChannel = validateMessageChannel(room.puzzle, channel);
     const messages = await ctx.db
       .query("messages")
       .withIndex("by_room_created", (q) => q.eq("roomId", room._id))
       .order("desc")
-      .take(100);
-    return messages.reverse();
+      .collect();
+    return messages
+      .filter((message) => message.channel === normalizedChannel)
+      .slice(0, 100)
+      .reverse();
   },
 });
 
 export const sendMessage = mutation({
-  args: { ...participantArgs, body: v.string() },
+  args: {
+    ...participantArgs,
+    body: v.string(),
+    channel: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
     assertRoomSlug(args.slug);
     assertSession(args.sessionId);
@@ -254,6 +283,7 @@ export const sendMessage = mutation({
       name: normalizeGuestName(args.name),
       color: cleanColor(args.color),
       body: normalizeChatMessage(args.body),
+      channel: validateMessageChannel(room.puzzle, args.channel),
       createdAt: Date.now(),
     });
   },

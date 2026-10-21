@@ -40,7 +40,7 @@ describe("realtime room functions", () => {
     ).toBeNull();
   });
 
-  it("tracks guests and validates chat", async () => {
+  it("tracks guests and isolates room chat from clue threads", async () => {
     const t = testApp.createTest();
     await t.mutation(testApp.api.rooms.createRoom, {
       slug,
@@ -59,14 +59,37 @@ describe("realtime room functions", () => {
       body: "  I have 1 down. ",
       ...ada,
     });
+    await t.mutation(testApp.api.rooms.sendMessage, {
+      slug,
+      body: "Could be a homophone.",
+      channel: "1-across",
+      ...ada,
+    });
 
     const room = await t.query(testApp.api.rooms.getRoom, { slug });
-    const messages = await t.query(testApp.api.rooms.getMessages, { slug });
+    const roomMessages = await t.query(testApp.api.rooms.getMessages, { slug });
+    const clueMessages = await t.query(testApp.api.rooms.getMessages, {
+      slug,
+      channel: "1-across",
+    });
     expect(room?.participants.map((participant) => participant.name).sort()).toEqual([
       "Ada",
       "Grace",
     ]);
-    expect(messages[0].body).toBe("I have 1 down.");
+    expect(roomMessages.map((message) => message.body)).toEqual([
+      "I have 1 down.",
+    ]);
+    expect(clueMessages.map((message) => message.body)).toEqual([
+      "Could be a homophone.",
+    ]);
+    await expect(
+      t.mutation(testApp.api.rooms.sendMessage, {
+        slug,
+        body: "Not a real clue.",
+        channel: "999-across",
+        ...ada,
+      }),
+    ).rejects.toThrow("Clue not found");
   });
 });
 

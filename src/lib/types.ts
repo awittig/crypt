@@ -79,6 +79,7 @@ export interface ChatMessage {
   name: string;
   color: string;
   body: string;
+  channel?: string;
   createdAt: number;
 }
 

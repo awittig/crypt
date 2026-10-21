@@ -5,6 +5,11 @@ The app uses a user-operated browser bookmarklet to copy puzzle data from the
 Guardian page, then synchronizes grid letters, cursors, presence, and chat
 through Convex.
 
+Live app: [crypt-brown.vercel.app](https://crypt-brown.vercel.app)
+
+Chat includes a room-wide channel plus a dedicated thread for every clue, so
+discussion stays attached to the answer being solved.
+
 ## Stack
 
 - Next.js App Router, React, TypeScript, and Tailwind CSS

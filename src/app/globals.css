@@ -695,14 +695,58 @@ h3 {
 
 .chat-header {
   display: flex;
-  align-items: baseline;
+  align-items: flex-end;
+  flex-wrap: wrap;
   justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 12px;
   border-bottom: 1px solid var(--rule);
 }
 
-.chat-header span {
+.chat-title {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+}
+
+.chat-title h2 {
+  margin-bottom: 0;
+}
+
+.chat-title span {
   color: var(--muted);
   font-size: 0.72rem;
+}
+
+.chat-tabs {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  background: #e7e3da;
+}
+
+.chat-tabs button {
+  min-width: 56px;
+  height: 29px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.chat-tabs button.active {
+  background: white;
+  color: var(--teal-dark);
+  box-shadow: 0 1px 4px rgb(35 46 42 / 12%);
+}
+
+.chat-tabs button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .messages {

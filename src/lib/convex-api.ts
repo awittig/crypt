@@ -1,5 +1,4 @@
 import { makeFunctionReference } from "convex/server";
-import type { Value } from "convex/values";
 
 import type {
   CellValue,
@@ -32,7 +31,7 @@ export const api = {
     createRoom: makeFunctionReference<"mutation">("rooms:createRoom"),
     getRoom: makeFunctionReference<
       "query",
-      { slug: string } & Record<string, Value>,
+      { slug: string } & Record<string, unknown>,
       RoomResult | null
     >("rooms:getRoom"),
     joinRoom: makeFunctionReference<"mutation">("rooms:joinRoom"),
@@ -40,7 +39,7 @@ export const api = {
     updateCell: makeFunctionReference<"mutation">("rooms:updateCell"),
     getMessages: makeFunctionReference<
       "query",
-      { slug: string } & Record<string, Value>,
+      { slug: string; channel?: string } & Record<string, unknown>,
       ChatMessage[]
     >("rooms:getMessages"),
     sendMessage: makeFunctionReference<"mutation">("rooms:sendMessage"),

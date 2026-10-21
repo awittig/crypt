@@ -34,6 +34,7 @@ export default defineSchema({
     name: v.string(),
     color: v.string(),
     body: v.string(),
+    channel: v.optional(v.string()),
     createdAt: v.number(),
   }).index("by_room_created", ["roomId", "createdAt"]),
 });

@@ -38,7 +38,6 @@ const stripMarkup = (value: string) => value.replace(/<[^>]*>/g, "");
 
 export function RoomSolver({ slug }: { slug: string }) {
   const roomData = useQuery(api.rooms.getRoom, { slug });
-  const messages = useQuery(api.rooms.getMessages, { slug }) ?? [];
   const joinRoom = useMutation(api.rooms.joinRoom);
   const updatePresence = useMutation(api.rooms.updatePresence);
   const updateCell = useMutation(api.rooms.updateCell);
@@ -52,6 +51,7 @@ export function RoomSolver({ slug }: { slug: string }) {
   const [direction, setDirection] = useState<"across" | "down">("across");
   const [checking, setChecking] = useState(false);
   const [showChat, setShowChat] = useState(true);
+  const [chatScope, setChatScope] = useState<"room" | "clue">("room");
   const [message, setMessage] = useState("");
   const [copied, setCopied] = useState(false);
   const [announcement, setAnnouncement] = useState("");
@@ -72,6 +72,10 @@ export function RoomSolver({ slug }: { slug: string }) {
   const effectiveActiveCell = activeCell ?? index?.cells[0]?.key;
   const effectiveActiveEntry =
     activeEntry ?? index?.cells[0]?.entryIds[0];
+  const chatChannel =
+    chatScope === "clue" ? effectiveActiveEntry : undefined;
+  const messages =
+    useQuery(api.rooms.getMessages, { slug, channel: chatChannel }) ?? [];
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -191,11 +195,15 @@ export function RoomSolver({ slug }: { slug: string }) {
   const progress = total ? Math.round((filled / total) * 100) : 0;
   const hasSolutions = puzzle.entries.some((entry) => Boolean(entry.solution));
 
-  function activateCell(key: string) {
+  function activateCell(key: string, toggleDirection = false) {
     const cell = index!.cellsByKey.get(key);
     if (!cell) return;
     let nextEntry: string | undefined;
-    if (key === effectiveActiveCell && cell.entryIds.length > 1) {
+    if (
+      toggleDirection &&
+      key === effectiveActiveCell &&
+      cell.entryIds.length > 1
+    ) {
       const currentIndex = cell.entryIds.indexOf(effectiveActiveEntry ?? "");
       nextEntry = cell.entryIds[(currentIndex + 1) % cell.entryIds.length];
     } else {
@@ -249,7 +257,7 @@ export function RoomSolver({ slug }: { slug: string }) {
     }
     if (event.key === "Enter") {
       event.preventDefault();
-      activateCell(key);
+      activateCell(key, true);
     }
   }
 
@@ -271,7 +279,9 @@ export function RoomSolver({ slug }: { slug: string }) {
     if (!message.trim()) return;
     const body = message;
     setMessage("");
-    await sendMessage({ ...guestArgs, body }).catch(() => setMessage(body));
+    await sendMessage({ ...guestArgs, body, channel: chatChannel }).catch(() =>
+      setMessage(body),
+    );
   }
 
   async function copyInvite() {
@@ -488,17 +498,58 @@ export function RoomSolver({ slug }: { slug: string }) {
         </aside>
 
         {showChat && (
-          <aside className="chat-column" aria-label="Room chat">
+          <aside
+            className="chat-column"
+            aria-label={
+              chatScope === "clue" && currentEntry
+                ? `Chat for clue ${currentEntry.humanNumber} ${currentEntry.direction}`
+                : "Room chat"
+            }
+          >
             <header className="chat-header">
-              <h2>Room chat</h2>
-              <span>{roomData.participants.length} online</span>
+              <div className="chat-title">
+                <h2>Chat</h2>
+                <span>{roomData.participants.length} online</span>
+              </div>
+              <div className="chat-tabs" role="tablist" aria-label="Chat channel">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={chatScope === "room"}
+                  className={chatScope === "room" ? "active" : ""}
+                  onClick={() => setChatScope("room")}
+                >
+                  Room
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={chatScope === "clue"}
+                  className={chatScope === "clue" ? "active" : ""}
+                  disabled={!currentEntry}
+                  onClick={() => setChatScope("clue")}
+                >
+                  {currentEntry
+                    ? `${currentEntry.humanNumber} ${currentEntry.direction === "across" ? "A" : "D"}`
+                    : "Clue"}
+                </button>
+              </div>
             </header>
             <div className="messages" aria-live="polite">
               {!messages.length && (
                 <p className="empty-chat">
-                  Share a hunch, celebrate a solve,
-                  <br />
-                  or ask for another brain.
+                  {chatScope === "clue" && currentEntry ? (
+                    <>
+                      Start a thread about {currentEntry.humanNumber}{" "}
+                      {currentEntry.direction}.
+                    </>
+                  ) : (
+                    <>
+                      Share a hunch, celebrate a solve,
+                      <br />
+                      or ask for another brain.
+                    </>
+                  )}
                 </p>
               )}
               {messages.map((item) => (
@@ -527,7 +578,11 @@ export function RoomSolver({ slug }: { slug: string }) {
                 id="chat-message"
                 value={message}
                 onChange={(event) => setMessage(event.target.value)}
-                placeholder="Share a thought…"
+                placeholder={
+                  chatScope === "clue" && currentEntry
+                    ? `Discuss ${currentEntry.humanNumber} ${currentEntry.direction}…`
+                    : "Share with the room…"
+                }
                 maxLength={500}
               />
               <button type="submit" aria-label="Send message">
