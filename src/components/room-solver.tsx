@@ -551,10 +551,52 @@ export function RoomSolver({ slug }: { slug: string }) {
 
           {currentEntry && (
             <div className="current-clue-mobile">
-              <strong>{currentEntry.humanNumber}. </strong>
-              <span
-                dangerouslySetInnerHTML={{ __html: currentEntry.clue }}
-              />
+              <div className="current-clue-summary">
+                <strong>{currentEntry.humanNumber}. </strong>
+                <span
+                  dangerouslySetInnerHTML={{ __html: currentEntry.clue }}
+                />
+              </div>
+              <section
+                className="inline-clue-chat current-clue-chat"
+                id={`clue-chat-${currentEntry.id}`}
+                aria-label={`Chat for clue ${currentEntry.humanNumber} ${currentEntry.direction}`}
+              >
+                <header className="inline-clue-chat-header">
+                  <MessageCircle size={14} aria-hidden="true" />
+                  <strong>Clue chat</strong>
+                </header>
+                <ChatMessageList
+                  messages={clueMessages}
+                  empty={`Start a thread about ${currentEntry.humanNumber} ${currentEntry.direction}.`}
+                  endRef={clueMessageEndRef}
+                />
+                <form
+                  className="chat-form inline-clue-chat-form"
+                  onSubmit={submitClueMessage}
+                >
+                  <label
+                    className="sr-only"
+                    htmlFor={`clue-chat-message-${currentEntry.id}`}
+                  >
+                    Message about {currentEntry.humanNumber}{" "}
+                    {currentEntry.direction}
+                  </label>
+                  <input
+                    id={`clue-chat-message-${currentEntry.id}`}
+                    value={clueMessage}
+                    onChange={(event) => setClueMessage(event.target.value)}
+                    placeholder={`Discuss ${currentEntry.humanNumber} ${currentEntry.direction}…`}
+                    maxLength={500}
+                  />
+                  <button
+                    type="submit"
+                    aria-label={`Send message about ${currentEntry.humanNumber} ${currentEntry.direction}`}
+                  >
+                    <Send size={15} aria-hidden="true" />
+                  </button>
+                </form>
+              </section>
             </div>
           )}
 
@@ -601,8 +643,7 @@ export function RoomSolver({ slug }: { slug: string }) {
                             entry.id,
                           );
                         }}
-                        aria-expanded={isActive}
-                        aria-controls={`clue-chat-${entry.id}`}
+                        aria-current={isActive ? "true" : undefined}
                         aria-label={`${entry.humanNumber} ${stripMarkup(entry.clue)}, ${entry.length} letters${unreadEntries.has(entry.id) ? ", unread messages" : ""}`}
                       >
                         <span className="clue-number">{entry.humanNumber}</span>
@@ -617,49 +658,6 @@ export function RoomSolver({ slug }: { slug: string }) {
                           />
                         )}
                       </button>
-                      {isActive && (
-                        <section
-                          className="inline-clue-chat"
-                          id={`clue-chat-${entry.id}`}
-                          aria-label={`Chat for clue ${entry.humanNumber} ${entry.direction}`}
-                        >
-                          <header className="inline-clue-chat-header">
-                            <MessageCircle size={14} aria-hidden="true" />
-                            <strong>Clue chat</strong>
-                          </header>
-                          <ChatMessageList
-                            messages={clueMessages}
-                            empty={`Start a thread about ${entry.humanNumber} ${entry.direction}.`}
-                            endRef={clueMessageEndRef}
-                          />
-                          <form
-                            className="chat-form inline-clue-chat-form"
-                            onSubmit={submitClueMessage}
-                          >
-                            <label
-                              className="sr-only"
-                              htmlFor={`clue-chat-message-${entry.id}`}
-                            >
-                              Message about {entry.humanNumber} {entry.direction}
-                            </label>
-                            <input
-                              id={`clue-chat-message-${entry.id}`}
-                              value={clueMessage}
-                              onChange={(event) =>
-                                setClueMessage(event.target.value)
-                              }
-                              placeholder={`Discuss ${entry.humanNumber} ${entry.direction}…`}
-                              maxLength={500}
-                            />
-                            <button
-                              type="submit"
-                              aria-label={`Send message about ${entry.humanNumber} ${entry.direction}`}
-                            >
-                              <Send size={15} aria-hidden="true" />
-                            </button>
-                          </form>
-                        </section>
-                      )}
                     </div>
                   );
                 })}
