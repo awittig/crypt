@@ -56,6 +56,10 @@ export function RoomSolver({ slug }: { slug: string }) {
   const [copied, setCopied] = useState(false);
   const [announcement, setAnnouncement] = useState("");
   const inputRefs = useRef(new Map<string, HTMLInputElement>());
+  const pendingEntryFocusRef = useRef<{
+    cellKey: string;
+    entryId: string;
+  } | null>(null);
   const lastUpdateRef = useRef(0);
   const messageEndRef = useRef<HTMLDivElement>(null);
 
@@ -195,11 +199,17 @@ export function RoomSolver({ slug }: { slug: string }) {
   const progress = total ? Math.round((filled / total) * 100) : 0;
   const hasSolutions = puzzle.entries.some((entry) => Boolean(entry.solution));
 
-  function activateCell(key: string, toggleDirection = false) {
+  function activateCell(
+    key: string,
+    toggleDirection = false,
+    explicitEntry?: string,
+  ) {
     const cell = index!.cellsByKey.get(key);
     if (!cell) return;
     let nextEntry: string | undefined;
-    if (
+    if (explicitEntry && cell.entryIds.includes(explicitEntry)) {
+      nextEntry = explicitEntry;
+    } else if (
       toggleDirection &&
       key === effectiveActiveCell &&
       cell.entryIds.length > 1
@@ -215,10 +225,18 @@ export function RoomSolver({ slug }: { slug: string }) {
     if (entry) setDirection(entry.direction);
   }
 
-  function focusCell(key?: string) {
+  function focusCell(key?: string, explicitEntry?: string) {
     if (!key) return;
-    activateCell(key);
-    window.requestAnimationFrame(() => inputRefs.current.get(key)?.focus());
+    if (explicitEntry) {
+      pendingEntryFocusRef.current = { cellKey: key, entryId: explicitEntry };
+    }
+    activateCell(key, false, explicitEntry);
+    window.requestAnimationFrame(() => {
+      inputRefs.current.get(key)?.focus();
+      if (pendingEntryFocusRef.current?.cellKey === key) {
+        pendingEntryFocusRef.current = null;
+      }
+    });
   }
 
   function moveWithinEntry(step: number) {
@@ -409,7 +427,16 @@ export function RoomSolver({ slug }: { slug: string }) {
                       value={value}
                       maxLength={1}
                       autoComplete="off"
-                      onFocus={() => activateCell(key)}
+                      onFocus={() => {
+                        const pendingEntry = pendingEntryFocusRef.current;
+                        activateCell(
+                          key,
+                          false,
+                          pendingEntry?.cellKey === key
+                            ? pendingEntry.entryId
+                            : undefined,
+                        );
+                      }}
                       onKeyDown={(event) => handleCellKey(event, key)}
                       onChange={(event) => {
                         const letter = event.target.value
@@ -477,9 +504,10 @@ export function RoomSolver({ slug }: { slug: string }) {
                       isEntryComplete(entry) ? "complete" : "",
                     ].join(" ")}
                     onClick={() => {
-                      setActiveEntry(entry.id);
-                      setDirection(entry.direction);
-                      focusCell(index.entryCells.get(entry.id)?.[0]?.key);
+                      focusCell(
+                        index.entryCells.get(entry.id)?.[0]?.key,
+                        entry.id,
+                      );
                     }}
                     key={entry.id}
                     aria-label={`${entry.humanNumber} ${stripMarkup(entry.clue)}, ${entry.length} letters`}

@@ -16,6 +16,40 @@ test("explains the import flow and rejects malformed data", async ({ page }) => 
   await expect(page.locator(".form-error")).toContainText("incomplete");
 });
 
+test("clue bank clicks switch direction at an intersection", async ({ page }) => {
+  test.skip(
+    !process.env.NEXT_PUBLIC_CONVEX_URL,
+    "Requires a configured Convex development deployment.",
+  );
+
+  await page.goto("/import");
+  await page
+    .getByLabel("Puzzle data")
+    .fill(JSON.stringify(syntheticGuardianImport));
+  await page.getByLabel("Your display name").fill("Ada");
+  await page.getByRole("button", { name: "Create private room" }).click();
+  await expect(page).toHaveURL(/\/room\//);
+
+  const across = page.getByRole("button", {
+    name: /^1 Feline heard \(3\), 3 letters$/,
+  });
+  const down = page.getByRole("button", {
+    name: /^1 Vehicle \(3\), 3 letters$/,
+  });
+
+  await across.click();
+  await expect(across).toHaveClass(/\bactive\b/);
+  await down.click();
+  await expect(down).toHaveClass(/\bactive\b/);
+  await expect(across).not.toHaveClass(/\bactive\b/);
+  await expect(page.getByRole("tab", { name: "1 D" })).toBeVisible();
+
+  await across.click();
+  await expect(across).toHaveClass(/\bactive\b/);
+  await expect(down).not.toHaveClass(/\bactive\b/);
+  await expect(page.getByRole("tab", { name: "1 A" })).toBeVisible();
+});
+
 test("two guests share letters, presence, and chat", async ({ browser }) => {
   test.skip(
     !process.env.NEXT_PUBLIC_CONVEX_URL,
