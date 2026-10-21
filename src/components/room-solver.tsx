@@ -28,6 +28,12 @@ import {
   firstEntryForCell,
 } from "@/lib/crossword";
 import {
+  hasUnreadClueMessage,
+  markClueThreadRead,
+  readClueReadState,
+  type ClueReadState,
+} from "@/lib/clue-read-state";
+import {
   createGuestIdentity,
   readGuestIdentity,
   type GuestIdentity,
@@ -55,6 +61,8 @@ export function RoomSolver({ slug }: { slug: string }) {
   const [message, setMessage] = useState("");
   const [copied, setCopied] = useState(false);
   const [announcement, setAnnouncement] = useState("");
+  const [clueReadState, setClueReadState] =
+    useState<ClueReadState | null>(null);
   const inputRefs = useRef(new Map<string, HTMLInputElement>());
   const pendingEntryFocusRef = useRef<{
     cellKey: string;
@@ -80,14 +88,53 @@ export function RoomSolver({ slug }: { slug: string }) {
     chatScope === "clue" ? effectiveActiveEntry : undefined;
   const messages =
     useQuery(api.rooms.getMessages, { slug, channel: chatChannel }) ?? [];
+  const clueActivity = useQuery(api.rooms.getClueActivity, { slug });
+  const activityByChannel = useMemo(
+    () =>
+      new Map(
+        (clueActivity ?? []).map((activity) => [activity.channel, activity]),
+      ),
+    [clueActivity],
+  );
+  const unreadEntries = useMemo(() => {
+    if (!identity || !clueReadState) return new Set<string>();
+    return new Set(
+      (clueActivity ?? [])
+        .filter((activity) =>
+          hasUnreadClueMessage(clueReadState, activity, identity.sessionId),
+        )
+        .filter(
+          (activity) =>
+            !(
+              showChat &&
+              chatScope === "clue" &&
+              activity.channel === effectiveActiveEntry
+            ),
+        )
+        .map((activity) => activity.channel),
+    );
+  }, [
+    chatScope,
+    clueActivity,
+    clueReadState,
+    effectiveActiveEntry,
+    identity,
+    showChat,
+  ]);
+  const currentClueUnread = effectiveActiveEntry
+    ? unreadEntries.has(effectiveActiveEntry)
+    : false;
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
       const saved = readGuestIdentity();
-      if (saved) setIdentity(saved);
+      if (saved) {
+        setIdentity(saved);
+        setClueReadState(readClueReadState(slug, saved.sessionId));
+      }
     }, 0);
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [slug]);
 
   useEffect(() => {
     if (!identity || !roomId) return;
@@ -133,6 +180,40 @@ export function RoomSolver({ slug }: { slug: string }) {
     messageEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
 
+  useEffect(() => {
+    if (
+      !identity ||
+      !clueReadState ||
+      !showChat ||
+      chatScope !== "clue" ||
+      !effectiveActiveEntry
+    ) {
+      return;
+    }
+    const activity = activityByChannel.get(effectiveActiveEntry);
+    if (!activity) return;
+
+    const timer = window.setTimeout(() => {
+      const next = markClueThreadRead(
+        slug,
+        identity.sessionId,
+        clueReadState,
+        effectiveActiveEntry,
+        activity.latestCreatedAt,
+      );
+      if (next !== clueReadState) setClueReadState(next);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [
+    activityByChannel,
+    chatScope,
+    clueReadState,
+    effectiveActiveEntry,
+    identity,
+    showChat,
+    slug,
+  ]);
+
   if (roomData === undefined) {
     return <RoomState title="Opening the grid…" detail="Connecting to the room." />;
   }
@@ -159,6 +240,9 @@ export function RoomSolver({ slug }: { slug: string }) {
                 const created = createGuestIdentity(joinName);
                 if (!created.name) throw new Error("Choose a display name.");
                 setIdentity(created);
+                setClueReadState(
+                  readClueReadState(slug, created.sessionId),
+                );
               } catch (cause) {
                 setJoinError(
                   cause instanceof Error ? cause.message : "Could not join the room.",
@@ -510,12 +594,19 @@ export function RoomSolver({ slug }: { slug: string }) {
                       );
                     }}
                     key={entry.id}
-                    aria-label={`${entry.humanNumber} ${stripMarkup(entry.clue)}, ${entry.length} letters`}
+                    aria-label={`${entry.humanNumber} ${stripMarkup(entry.clue)}, ${entry.length} letters${unreadEntries.has(entry.id) ? ", unread messages" : ""}`}
                   >
                     <span className="clue-number">{entry.humanNumber}</span>
                     <span>
                       <span dangerouslySetInnerHTML={{ __html: entry.clue }} />
                     </span>
+                    {unreadEntries.has(entry.id) && (
+                      <span
+                        className="unread-indicator"
+                        aria-hidden="true"
+                        title="Unread messages"
+                      />
+                    )}
                   </button>
                 ))}
               </div>
@@ -551,6 +642,11 @@ export function RoomSolver({ slug }: { slug: string }) {
                   type="button"
                   role="tab"
                   aria-selected={chatScope === "clue"}
+                  aria-label={
+                    currentEntry
+                      ? `${currentEntry.humanNumber} ${currentEntry.direction === "across" ? "A" : "D"}${currentClueUnread ? ", unread messages" : ""}`
+                      : "Clue"
+                  }
                   className={chatScope === "clue" ? "active" : ""}
                   disabled={!currentEntry}
                   onClick={() => setChatScope("clue")}
@@ -558,6 +654,12 @@ export function RoomSolver({ slug }: { slug: string }) {
                   {currentEntry
                     ? `${currentEntry.humanNumber} ${currentEntry.direction === "across" ? "A" : "D"}`
                     : "Clue"}
+                  {currentClueUnread && (
+                    <span
+                      className="unread-indicator unread-indicator-tab"
+                      aria-hidden="true"
+                    />
+                  )}
                 </button>
               </div>
             </header>

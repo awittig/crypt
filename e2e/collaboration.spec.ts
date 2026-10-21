@@ -84,13 +84,31 @@ test("two guests share letters, presence, and chat", async ({ browser }) => {
   await expect(secondPage.getByText("Try 1 down")).toBeVisible();
 
   await firstPage.getByRole("tab", { name: "1 A" }).click();
-  await secondPage.getByRole("tab", { name: "1 A" }).click();
-  await expect(secondPage.getByText("Try 1 down")).not.toBeVisible();
   await firstPage
     .getByRole("textbox", { name: "Message", exact: true })
     .fill("Could be a homophone");
   await firstPage.getByRole("button", { name: "Send message" }).click();
+
+  await expect(
+    secondPage.getByRole("tab", { name: "1 A, unread messages" }),
+  ).toBeVisible();
+  await expect(
+    secondPage.getByRole("button", {
+      name: /1 Feline heard \(3\), 3 letters, unread messages/,
+    }),
+  ).toBeVisible();
+
+  await secondPage
+    .getByRole("tab", { name: "1 A, unread messages" })
+    .click();
+  await expect(secondPage.getByText("Try 1 down")).not.toBeVisible();
   await expect(secondPage.getByText("Could be a homophone")).toBeVisible();
+  await expect(secondPage.getByRole("tab", { name: "1 A" })).toBeVisible();
+  await expect(
+    secondPage.getByRole("button", {
+      name: /1 Feline heard \(3\), 3 letters, unread messages/,
+    }),
+  ).not.toBeVisible();
 
   await first.close();
   await second.close();

@@ -1,6 +1,6 @@
-import { mutationGeneric as mutation, queryGeneric as query } from "convex/server";
 import { v } from "convex/values";
 
+import { mutation, query } from "./_generated/server";
 import {
   assertRoomSlug,
   isParticipantActive,
@@ -253,13 +253,54 @@ export const getMessages = query({
     const normalizedChannel = validateMessageChannel(room.puzzle, channel);
     const messages = await ctx.db
       .query("messages")
-      .withIndex("by_room_created", (q) => q.eq("roomId", room._id))
+      .withIndex("by_room_channel_created", (q) =>
+        q.eq("roomId", room._id).eq("channel", normalizedChannel),
+      )
       .order("desc")
-      .collect();
-    return messages
-      .filter((message) => message.channel === normalizedChannel)
-      .slice(0, 100)
-      .reverse();
+      .take(100);
+    return messages.reverse();
+  },
+});
+
+export const getClueActivity = query({
+  args: { slug: v.string() },
+  handler: async (ctx, { slug }) => {
+    if (!/^[a-zA-Z0-9_-]{20,64}$/.test(slug)) return [];
+    const room = await ctx.db
+      .query("rooms")
+      .withIndex("by_slug", (q) => q.eq("slug", slug))
+      .unique();
+    if (!room) return [];
+
+    const puzzle = room.puzzle as {
+      entries?: Array<{ id?: unknown }>;
+    };
+    const channels = (puzzle.entries ?? [])
+      .map((entry) => entry.id)
+      .filter((id): id is string => typeof id === "string")
+      .slice(0, 300);
+    const activity = await Promise.all(
+      channels.map(async (channel) => {
+        const latest = await ctx.db
+          .query("messages")
+          .withIndex("by_room_channel_created", (q) =>
+            q.eq("roomId", room._id).eq("channel", channel),
+          )
+          .order("desc")
+          .first();
+        return latest
+          ? {
+              channel,
+              latestCreatedAt: latest.createdAt,
+              latestSessionId: latest.sessionId,
+            }
+          : null;
+      }),
+    );
+
+    return activity.filter(
+      (item): item is NonNullable<typeof item> => item !== null,
+    );
   },
 });
 

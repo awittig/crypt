@@ -656,8 +656,9 @@ h3 {
 
 .clue-button {
   display: grid;
-  grid-template-columns: 34px 1fr;
+  grid-template-columns: 34px 1fr auto;
   width: 100%;
+  align-items: start;
   gap: 6px;
   padding: 9px 8px;
   border: 0;
@@ -684,6 +685,16 @@ h3 {
 
 .clue-number {
   font-weight: 800;
+}
+
+.unread-indicator {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-top: 0.38rem;
+  border-radius: 50%;
+  background: var(--coral);
+  box-shadow: 0 0 0 2px rgb(192 82 57 / 13%);
 }
 
 .chat-column {
@@ -727,8 +738,12 @@ h3 {
 }
 
 .chat-tabs button {
+  display: inline-flex;
   min-width: 56px;
   height: 29px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   border: 0;
   border-radius: 3px;
   background: transparent;
@@ -747,6 +762,12 @@ h3 {
 .chat-tabs button:disabled {
   cursor: not-allowed;
   opacity: 0.45;
+}
+
+.unread-indicator-tab {
+  width: 7px;
+  height: 7px;
+  margin-top: 0;
 }
 
 .messages {

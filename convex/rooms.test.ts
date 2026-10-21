@@ -65,12 +65,23 @@ describe("realtime room functions", () => {
       channel: "1-across",
       ...ada,
     });
+    await t.mutation(testApp.api.rooms.sendMessage, {
+      slug,
+      body: "Vehicle looks direct.",
+      channel: "1-down",
+      sessionId: "session_grace_1234",
+      name: "Grace",
+      color: "#c05239",
+    });
 
     const room = await t.query(testApp.api.rooms.getRoom, { slug });
     const roomMessages = await t.query(testApp.api.rooms.getMessages, { slug });
     const clueMessages = await t.query(testApp.api.rooms.getMessages, {
       slug,
       channel: "1-across",
+    });
+    const clueActivity = await t.query(testApp.api.rooms.getClueActivity, {
+      slug,
     });
     expect(room?.participants.map((participant) => participant.name).sort()).toEqual([
       "Ada",
@@ -82,6 +93,21 @@ describe("realtime room functions", () => {
     expect(clueMessages.map((message) => message.body)).toEqual([
       "Could be a homophone.",
     ]);
+    expect(clueActivity).toEqual(
+      expect.arrayContaining([
+        {
+          channel: "1-across",
+          latestCreatedAt: expect.any(Number),
+          latestSessionId: ada.sessionId,
+        },
+        {
+          channel: "1-down",
+          latestCreatedAt: expect.any(Number),
+          latestSessionId: "session_grace_1234",
+        },
+      ]),
+    );
+    expect(clueActivity).toHaveLength(2);
     await expect(
       t.mutation(testApp.api.rooms.sendMessage, {
         slug,

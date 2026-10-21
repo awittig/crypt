@@ -42,6 +42,15 @@ export const api = {
       { slug: string; channel?: string } & Record<string, unknown>,
       ChatMessage[]
     >("rooms:getMessages"),
+    getClueActivity: makeFunctionReference<
+      "query",
+      { slug: string } & Record<string, unknown>,
+      Array<{
+        channel: string;
+        latestCreatedAt: number;
+        latestSessionId: string;
+      }>
+    >("rooms:getClueActivity"),
     sendMessage: makeFunctionReference<"mutation">("rooms:sendMessage"),
   },
 };
