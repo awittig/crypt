@@ -35,7 +35,7 @@ export function buildCrosswordIndex(puzzle: CrosswordPuzzle): CrosswordIndex {
           throw new Error(`Conflicting solutions at ${key}`);
         }
         existing.solution ??= solutionLetter;
-        existing.number ??= entry.number;
+        if (index === 0) existing.number ??= entry.number;
         return existing;
       }
 

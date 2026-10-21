@@ -25,6 +25,20 @@ describe("crossword grid model", () => {
     ]);
   });
 
+  it("numbers only clue starting cells", () => {
+    const index = buildCrosswordIndex(puzzle);
+    const numberedCells = index.cells
+      .filter((cell) => cell.number !== undefined)
+      .map((cell) => [cell.key, cell.number]);
+
+    expect(numberedCells).toEqual([
+      ["0:0", 1],
+      ["2:0", 2],
+      ["0:2", 3],
+    ]);
+    expect(index.cellsByKey.get(cellKey(2, 2))?.number).toBeUndefined();
+  });
+
   it("selects the preferred direction at an intersection", () => {
     const index = buildCrosswordIndex(puzzle);
     expect(firstEntryForCell(index, "0:0", "down")).toBe("1-down");
