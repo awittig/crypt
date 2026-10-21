@@ -60,6 +60,7 @@ export function RoomSolver({ slug }: { slug: string }) {
   const messageEndRef = useRef<HTMLDivElement>(null);
 
   const puzzle = roomData?.room.puzzle;
+  const roomId = roomData?.room._id;
   const index = useMemo(
     () => (puzzle ? buildCrosswordIndex(puzzle) : null),
     [puzzle],
@@ -81,14 +82,14 @@ export function RoomSolver({ slug }: { slug: string }) {
   }, []);
 
   useEffect(() => {
-    if (!identity || !roomData) return;
+    if (!identity || !roomId) return;
     void joinRoom({ slug, ...identity }).catch(() => {
       setJoinError("Could not connect to this room.");
     });
-  }, [identity, joinRoom, roomData, slug]);
+  }, [identity, joinRoom, roomId, slug]);
 
   useEffect(() => {
-    if (!identity || !roomData) return;
+    if (!identity || !roomId) return;
     const heartbeat = () =>
       void updatePresence({
         slug,
@@ -103,7 +104,7 @@ export function RoomSolver({ slug }: { slug: string }) {
     effectiveActiveCell,
     effectiveActiveEntry,
     identity,
-    roomData,
+    roomId,
     slug,
     updatePresence,
   ]);

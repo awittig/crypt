@@ -43,7 +43,9 @@ test("two guests share letters, presence, and chat", async ({ browser }) => {
   await firstPage.getByLabel("Row 1, column 1").fill("C");
   await expect(secondPage.getByLabel("Row 1, column 1")).toHaveValue("C");
 
-  await firstPage.getByLabel("Message").fill("Try 1 down");
+  await firstPage
+    .getByRole("textbox", { name: "Message", exact: true })
+    .fill("Try 1 down");
   await firstPage.getByRole("button", { name: "Send message" }).click();
   await expect(secondPage.getByText("Try 1 down")).toBeVisible();
 
