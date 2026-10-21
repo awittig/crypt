@@ -438,8 +438,7 @@ export function RoomSolver({ slug }: { slug: string }) {
               <strong>{currentEntry.humanNumber}. </strong>
               <span
                 dangerouslySetInnerHTML={{ __html: currentEntry.clue }}
-              />{" "}
-              <span>({currentEntry.length})</span>
+              />
             </div>
           )}
 
@@ -487,8 +486,7 @@ export function RoomSolver({ slug }: { slug: string }) {
                   >
                     <span className="clue-number">{entry.humanNumber}</span>
                     <span>
-                      <span dangerouslySetInnerHTML={{ __html: entry.clue }} />{" "}
-                      <small>({entry.length})</small>
+                      <span dangerouslySetInnerHTML={{ __html: entry.clue }} />
                     </span>
                   </button>
                 ))}
