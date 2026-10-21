@@ -18,6 +18,7 @@ import {
   type CSSProperties,
   type FormEvent,
   type KeyboardEvent,
+  type RefObject,
 } from "react";
 
 import { api } from "@/lib/convex-api";
@@ -38,7 +39,7 @@ import {
   readGuestIdentity,
   type GuestIdentity,
 } from "@/lib/guest";
-import type { CrosswordEntry } from "@/lib/types";
+import type { ChatMessage, CrosswordEntry } from "@/lib/types";
 
 const stripMarkup = (value: string) => value.replace(/<[^>]*>/g, "");
 
@@ -57,8 +58,8 @@ export function RoomSolver({ slug }: { slug: string }) {
   const [direction, setDirection] = useState<"across" | "down">("across");
   const [checking, setChecking] = useState(false);
   const [showChat, setShowChat] = useState(true);
-  const [chatScope, setChatScope] = useState<"room" | "clue">("room");
-  const [message, setMessage] = useState("");
+  const [roomMessage, setRoomMessage] = useState("");
+  const [clueMessage, setClueMessage] = useState("");
   const [copied, setCopied] = useState(false);
   const [announcement, setAnnouncement] = useState("");
   const [clueReadState, setClueReadState] =
@@ -69,7 +70,8 @@ export function RoomSolver({ slug }: { slug: string }) {
     entryId: string;
   } | null>(null);
   const lastUpdateRef = useRef(0);
-  const messageEndRef = useRef<HTMLDivElement>(null);
+  const roomMessageEndRef = useRef<HTMLDivElement>(null);
+  const clueMessageEndRef = useRef<HTMLDivElement>(null);
 
   const puzzle = roomData?.room.puzzle;
   const roomId = roomData?.room._id;
@@ -84,10 +86,12 @@ export function RoomSolver({ slug }: { slug: string }) {
   const effectiveActiveCell = activeCell ?? index?.cells[0]?.key;
   const effectiveActiveEntry =
     activeEntry ?? index?.cells[0]?.entryIds[0];
-  const chatChannel =
-    chatScope === "clue" ? effectiveActiveEntry : undefined;
-  const messages =
-    useQuery(api.rooms.getMessages, { slug, channel: chatChannel }) ?? [];
+  const roomMessages = useQuery(api.rooms.getMessages, { slug }) ?? [];
+  const clueMessages =
+    useQuery(api.rooms.getMessages, {
+      slug,
+      channel: effectiveActiveEntry,
+    }) ?? [];
   const clueActivity = useQuery(api.rooms.getClueActivity, { slug });
   const activityByChannel = useMemo(
     () =>
@@ -105,25 +109,16 @@ export function RoomSolver({ slug }: { slug: string }) {
         )
         .filter(
           (activity) =>
-            !(
-              showChat &&
-              chatScope === "clue" &&
-              activity.channel === effectiveActiveEntry
-            ),
+            activity.channel !== effectiveActiveEntry,
         )
         .map((activity) => activity.channel),
     );
   }, [
-    chatScope,
     clueActivity,
     clueReadState,
     effectiveActiveEntry,
     identity,
-    showChat,
   ]);
-  const currentClueUnread = effectiveActiveEntry
-    ? unreadEntries.has(effectiveActiveEntry)
-    : false;
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -177,15 +172,17 @@ export function RoomSolver({ slug }: { slug: string }) {
   }, [identity, roomData?.cells]);
 
   useEffect(() => {
-    messageEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length]);
+    roomMessageEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [roomMessages.length]);
+
+  useEffect(() => {
+    clueMessageEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [clueMessages.length]);
 
   useEffect(() => {
     if (
       !identity ||
       !clueReadState ||
-      !showChat ||
-      chatScope !== "clue" ||
       !effectiveActiveEntry
     ) {
       return;
@@ -206,11 +203,9 @@ export function RoomSolver({ slug }: { slug: string }) {
     return () => window.clearTimeout(timer);
   }, [
     activityByChannel,
-    chatScope,
     clueReadState,
     effectiveActiveEntry,
     identity,
-    showChat,
     slug,
   ]);
 
@@ -376,14 +371,24 @@ export function RoomSolver({ slug }: { slug: string }) {
     );
   }
 
-  async function submitMessage(event: FormEvent) {
+  async function submitRoomMessage(event: FormEvent) {
     event.preventDefault();
-    if (!message.trim()) return;
-    const body = message;
-    setMessage("");
-    await sendMessage({ ...guestArgs, body, channel: chatChannel }).catch(() =>
-      setMessage(body),
-    );
+    if (!roomMessage.trim()) return;
+    const body = roomMessage;
+    setRoomMessage("");
+    await sendMessage({ ...guestArgs, body }).catch(() => setRoomMessage(body));
+  }
+
+  async function submitClueMessage(event: FormEvent) {
+    event.preventDefault();
+    if (!clueMessage.trim() || !effectiveActiveEntry) return;
+    const body = clueMessage;
+    setClueMessage("");
+    await sendMessage({
+      ...guestArgs,
+      body,
+      channel: effectiveActiveEntry,
+    }).catch(() => setClueMessage(body));
   }
 
   async function copyInvite() {
@@ -580,137 +585,109 @@ export function RoomSolver({ slug }: { slug: string }) {
             <section className="clue-group" key={clueDirection}>
               <h2>{clueDirection === "across" ? "Across" : "Down"}</h2>
               <div className="clue-list">
-                {entries(clueDirection).map((entry) => (
-                  <button
-                    className={[
-                      "clue-button",
-                      effectiveActiveEntry === entry.id ? "active" : "",
-                      isEntryComplete(entry) ? "complete" : "",
-                    ].join(" ")}
-                    onClick={() => {
-                      focusCell(
-                        index.entryCells.get(entry.id)?.[0]?.key,
-                        entry.id,
-                      );
-                    }}
-                    key={entry.id}
-                    aria-label={`${entry.humanNumber} ${stripMarkup(entry.clue)}, ${entry.length} letters${unreadEntries.has(entry.id) ? ", unread messages" : ""}`}
-                  >
-                    <span className="clue-number">{entry.humanNumber}</span>
-                    <span>
-                      <span dangerouslySetInnerHTML={{ __html: entry.clue }} />
-                    </span>
-                    {unreadEntries.has(entry.id) && (
-                      <span
-                        className="unread-indicator"
-                        aria-hidden="true"
-                        title="Unread messages"
-                      />
-                    )}
-                  </button>
-                ))}
+                {entries(clueDirection).map((entry) => {
+                  const isActive = effectiveActiveEntry === entry.id;
+                  return (
+                    <div className="clue-item" key={entry.id}>
+                      <button
+                        className={[
+                          "clue-button",
+                          isActive ? "active" : "",
+                          isEntryComplete(entry) ? "complete" : "",
+                        ].join(" ")}
+                        onClick={() => {
+                          focusCell(
+                            index.entryCells.get(entry.id)?.[0]?.key,
+                            entry.id,
+                          );
+                        }}
+                        aria-expanded={isActive}
+                        aria-controls={`clue-chat-${entry.id}`}
+                        aria-label={`${entry.humanNumber} ${stripMarkup(entry.clue)}, ${entry.length} letters${unreadEntries.has(entry.id) ? ", unread messages" : ""}`}
+                      >
+                        <span className="clue-number">{entry.humanNumber}</span>
+                        <span>
+                          <span dangerouslySetInnerHTML={{ __html: entry.clue }} />
+                        </span>
+                        {unreadEntries.has(entry.id) && (
+                          <span
+                            className="unread-indicator"
+                            aria-hidden="true"
+                            title="Unread messages"
+                          />
+                        )}
+                      </button>
+                      {isActive && (
+                        <section
+                          className="inline-clue-chat"
+                          id={`clue-chat-${entry.id}`}
+                          aria-label={`Chat for clue ${entry.humanNumber} ${entry.direction}`}
+                        >
+                          <header className="inline-clue-chat-header">
+                            <MessageCircle size={14} aria-hidden="true" />
+                            <strong>Clue chat</strong>
+                          </header>
+                          <ChatMessageList
+                            messages={clueMessages}
+                            empty={`Start a thread about ${entry.humanNumber} ${entry.direction}.`}
+                            endRef={clueMessageEndRef}
+                          />
+                          <form
+                            className="chat-form inline-clue-chat-form"
+                            onSubmit={submitClueMessage}
+                          >
+                            <label
+                              className="sr-only"
+                              htmlFor={`clue-chat-message-${entry.id}`}
+                            >
+                              Message about {entry.humanNumber} {entry.direction}
+                            </label>
+                            <input
+                              id={`clue-chat-message-${entry.id}`}
+                              value={clueMessage}
+                              onChange={(event) =>
+                                setClueMessage(event.target.value)
+                              }
+                              placeholder={`Discuss ${entry.humanNumber} ${entry.direction}…`}
+                              maxLength={500}
+                            />
+                            <button
+                              type="submit"
+                              aria-label={`Send message about ${entry.humanNumber} ${entry.direction}`}
+                            >
+                              <Send size={15} aria-hidden="true" />
+                            </button>
+                          </form>
+                        </section>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </section>
           ))}
         </aside>
 
         {showChat && (
-          <aside
-            className="chat-column"
-            aria-label={
-              chatScope === "clue" && currentEntry
-                ? `Chat for clue ${currentEntry.humanNumber} ${currentEntry.direction}`
-                : "Room chat"
-            }
-          >
+          <aside className="chat-column" aria-label="Room chat">
             <header className="chat-header">
               <div className="chat-title">
-                <h2>Chat</h2>
+                <h2>Room chat</h2>
                 <span>{roomData.participants.length} online</span>
               </div>
-              <div className="chat-tabs" role="tablist" aria-label="Chat channel">
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={chatScope === "room"}
-                  className={chatScope === "room" ? "active" : ""}
-                  onClick={() => setChatScope("room")}
-                >
-                  Room
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={chatScope === "clue"}
-                  aria-label={
-                    currentEntry
-                      ? `${currentEntry.humanNumber} ${currentEntry.direction === "across" ? "A" : "D"}${currentClueUnread ? ", unread messages" : ""}`
-                      : "Clue"
-                  }
-                  className={chatScope === "clue" ? "active" : ""}
-                  disabled={!currentEntry}
-                  onClick={() => setChatScope("clue")}
-                >
-                  {currentEntry
-                    ? `${currentEntry.humanNumber} ${currentEntry.direction === "across" ? "A" : "D"}`
-                    : "Clue"}
-                  {currentClueUnread && (
-                    <span
-                      className="unread-indicator unread-indicator-tab"
-                      aria-hidden="true"
-                    />
-                  )}
-                </button>
-              </div>
             </header>
-            <div className="messages" aria-live="polite">
-              {!messages.length && (
-                <p className="empty-chat">
-                  {chatScope === "clue" && currentEntry ? (
-                    <>
-                      Start a thread about {currentEntry.humanNumber}{" "}
-                      {currentEntry.direction}.
-                    </>
-                  ) : (
-                    <>
-                      Share a hunch, celebrate a solve,
-                      <br />
-                      or ask for another brain.
-                    </>
-                  )}
-                </p>
-              )}
-              {messages.map((item) => (
-                <div
-                  className="message"
-                  style={{ "--message-color": item.color } as CSSProperties}
-                  key={item._id}
-                >
-                  <div className="message-meta">
-                    <strong>{item.name}</strong>
-                    <time dateTime={new Date(item.createdAt).toISOString()}>
-                      {new Date(item.createdAt).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </time>
-                  </div>
-                  <p>{item.body}</p>
-                </div>
-              ))}
-              <div ref={messageEndRef} />
-            </div>
-            <form className="chat-form" onSubmit={submitMessage}>
+            <ChatMessageList
+              messages={roomMessages}
+              empty="Share a hunch, celebrate a solve, or ask for another brain."
+              endRef={roomMessageEndRef}
+            />
+            <form className="chat-form" onSubmit={submitRoomMessage}>
               <label className="sr-only" htmlFor="chat-message">Message</label>
               <input
                 id="chat-message"
-                value={message}
-                onChange={(event) => setMessage(event.target.value)}
-                placeholder={
-                  chatScope === "clue" && currentEntry
-                    ? `Discuss ${currentEntry.humanNumber} ${currentEntry.direction}…`
-                    : "Share with the room…"
-                }
+                value={roomMessage}
+                onChange={(event) => setRoomMessage(event.target.value)}
+                placeholder="Share with the room…"
                 maxLength={500}
               />
               <button type="submit" aria-label="Send message">
@@ -721,6 +698,41 @@ export function RoomSolver({ slug }: { slug: string }) {
         )}
       </div>
       <div className="sr-only" aria-live="polite">{announcement}</div>
+    </div>
+  );
+}
+
+function ChatMessageList({
+  messages,
+  empty,
+  endRef,
+}: {
+  messages: ChatMessage[];
+  empty: string;
+  endRef: RefObject<HTMLDivElement | null>;
+}) {
+  return (
+    <div className="messages" aria-live="polite">
+      {!messages.length && <p className="empty-chat">{empty}</p>}
+      {messages.map((item) => (
+        <div
+          className="message"
+          style={{ "--message-color": item.color } as CSSProperties}
+          key={item._id}
+        >
+          <div className="message-meta">
+            <strong>{item.name}</strong>
+            <time dateTime={new Date(item.createdAt).toISOString()}>
+              {new Date(item.createdAt).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </time>
+          </div>
+          <p>{item.body}</p>
+        </div>
+      ))}
+      <div ref={endRef} />
     </div>
   );
 }

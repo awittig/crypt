@@ -42,12 +42,16 @@ test("clue bank clicks switch direction at an intersection", async ({ page }) =>
   await down.click();
   await expect(down).toHaveClass(/\bactive\b/);
   await expect(across).not.toHaveClass(/\bactive\b/);
-  await expect(page.getByRole("tab", { name: "1 D" })).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Chat for clue 1 down" }),
+  ).toBeVisible();
 
   await across.click();
   await expect(across).toHaveClass(/\bactive\b/);
   await expect(down).not.toHaveClass(/\bactive\b/);
-  await expect(page.getByRole("tab", { name: "1 A" })).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "Chat for clue 1 across" }),
+  ).toBeVisible();
 });
 
 test("two guests share letters, presence, and chat", async ({ browser }) => {
@@ -80,18 +84,21 @@ test("two guests share letters, presence, and chat", async ({ browser }) => {
   await firstPage
     .getByRole("textbox", { name: "Message", exact: true })
     .fill("Try 1 down");
-  await firstPage.getByRole("button", { name: "Send message" }).click();
+  await firstPage
+    .getByRole("button", { name: "Send message", exact: true })
+    .click();
   await expect(secondPage.getByText("Try 1 down")).toBeVisible();
 
-  await firstPage.getByRole("tab", { name: "1 A" }).click();
+  await secondPage
+    .getByRole("button", { name: /^3 Anger \(3\), 3 letters$/ })
+    .click();
   await firstPage
-    .getByRole("textbox", { name: "Message", exact: true })
+    .getByRole("textbox", { name: "Message about 1 across" })
     .fill("Could be a homophone");
-  await firstPage.getByRole("button", { name: "Send message" }).click();
+  await firstPage
+    .getByRole("button", { name: "Send message about 1 across" })
+    .click();
 
-  await expect(
-    secondPage.getByRole("tab", { name: "1 A, unread messages" }),
-  ).toBeVisible();
   await expect(
     secondPage.getByRole("button", {
       name: /1 Feline heard \(3\), 3 letters, unread messages/,
@@ -99,11 +106,11 @@ test("two guests share letters, presence, and chat", async ({ browser }) => {
   ).toBeVisible();
 
   await secondPage
-    .getByRole("tab", { name: "1 A, unread messages" })
+    .getByRole("button", {
+      name: /1 Feline heard \(3\), 3 letters, unread messages/,
+    })
     .click();
-  await expect(secondPage.getByText("Try 1 down")).not.toBeVisible();
   await expect(secondPage.getByText("Could be a homophone")).toBeVisible();
-  await expect(secondPage.getByRole("tab", { name: "1 A" })).toBeVisible();
   await expect(
     secondPage.getByRole("button", {
       name: /1 Feline heard \(3\), 3 letters, unread messages/,

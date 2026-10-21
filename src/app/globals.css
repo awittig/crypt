@@ -654,6 +654,10 @@ h3 {
   gap: 3px;
 }
 
+.clue-item {
+  display: grid;
+}
+
 .clue-button {
   display: grid;
   grid-template-columns: 34px 1fr auto;
@@ -685,6 +689,42 @@ h3 {
 
 .clue-number {
   font-weight: 800;
+}
+
+.inline-clue-chat {
+  margin: 1px 8px 10px 34px;
+  padding: 10px 11px 11px;
+  border: 1px solid #c6d9d5;
+  border-top: 0;
+  border-radius: 0 0 4px 4px;
+  background: #f3faf8;
+}
+
+.inline-clue-chat-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--teal-dark);
+  font-size: 0.75rem;
+}
+
+.inline-clue-chat .messages {
+  min-height: 48px;
+  max-height: 180px;
+  padding: 9px 0;
+}
+
+.inline-clue-chat .empty-chat {
+  margin: auto 0;
+  text-align: left;
+}
+
+.inline-clue-chat-form {
+  margin-top: 2px;
+}
+
+.inline-clue-chat-form input {
+  background: white;
 }
 
 .unread-indicator {
