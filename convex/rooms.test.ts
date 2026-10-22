@@ -95,16 +95,24 @@ describe("realtime room functions", () => {
     ]);
     expect(clueActivity).toEqual(
       expect.arrayContaining([
-        {
+        expect.objectContaining({
           channel: "1-across",
+          totalCount: 1,
           latestCreatedAt: expect.any(Number),
           latestSessionId: ada.sessionId,
-        },
-        {
+          messages: [
+            expect.objectContaining({
+              sessionId: ada.sessionId,
+              name: "Ada",
+            }),
+          ],
+        }),
+        expect.objectContaining({
           channel: "1-down",
+          totalCount: 1,
           latestCreatedAt: expect.any(Number),
           latestSessionId: "session_grace_1234",
-        },
+        }),
       ]),
     );
     expect(clueActivity).toHaveLength(2);

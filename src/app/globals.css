@@ -744,14 +744,38 @@ h3 {
   background: white;
 }
 
-.unread-indicator {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  margin-top: 0.38rem;
+.clue-chat-stats {
+  display: flex;
+  max-width: 150px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.clue-comment-count {
+  display: inline-flex;
+  min-width: 27px;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 750;
+}
+
+.unread-user-bubble {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border: 2px solid white;
   border-radius: 50%;
-  background: var(--coral);
-  box-shadow: 0 0 0 2px rgb(192 82 57 / 13%);
+  color: white;
+  font-size: 0.5rem;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 0 0 1px rgb(23 36 33 / 12%);
 }
 
 .chat-column {
@@ -819,12 +843,6 @@ h3 {
 .chat-tabs button:disabled {
   cursor: not-allowed;
   opacity: 0.45;
-}
-
-.unread-indicator-tab {
-  width: 7px;
-  height: 7px;
-  margin-top: 0;
 }
 
 .messages {

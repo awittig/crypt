@@ -47,8 +47,15 @@ export const api = {
       { slug: string } & Record<string, unknown>,
       Array<{
         channel: string;
+        totalCount: number;
         latestCreatedAt: number;
         latestSessionId: string;
+        messages: Array<{
+          createdAt: number;
+          sessionId: string;
+          name: string;
+          color: string;
+        }>;
       }>
     >("rooms:getClueActivity"),
     sendMessage: makeFunctionReference<"mutation">("rooms:sendMessage"),

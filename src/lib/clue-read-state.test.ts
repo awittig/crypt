@@ -28,6 +28,14 @@ describe("clue thread read state", () => {
       channel: "1-across",
       latestCreatedAt: 124,
       latestSessionId: "guest-two",
+      messages: [
+        {
+          createdAt: 124,
+          sessionId: "guest-two",
+          name: "Grace",
+          color: "#c05239",
+        },
+      ],
     };
 
     expect(hasUnreadClueMessage({ "1-across": 123 }, activity, "guest-one")).toBe(
@@ -39,10 +47,45 @@ describe("clue thread read state", () => {
     expect(
       hasUnreadClueMessage(
         { "1-across": 123 },
-        { ...activity, latestSessionId: "guest-one" },
+        {
+          ...activity,
+          latestSessionId: "guest-one",
+          messages: [
+            {
+              createdAt: 124,
+              sessionId: "guest-one",
+              name: "Ada",
+              color: "#1f766e",
+            },
+          ],
+        },
         "guest-one",
       ),
     ).toBe(false);
+    expect(
+      hasUnreadClueMessage(
+        { "1-across": 123 },
+        {
+          ...activity,
+          latestSessionId: "guest-one",
+          messages: [
+            {
+              createdAt: 123.5,
+              sessionId: "guest-two",
+              name: "Grace",
+              color: "#c05239",
+            },
+            {
+              createdAt: 124,
+              sessionId: "guest-one",
+              name: "Ada",
+              color: "#1f766e",
+            },
+          ],
+        },
+        "guest-one",
+      ),
+    ).toBe(true);
   });
 
   it("keeps the newest read timestamp", () => {

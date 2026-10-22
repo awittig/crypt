@@ -279,28 +279,49 @@ export const getClueActivity = query({
       .map((entry) => entry.id)
       .filter((id): id is string => typeof id === "string")
       .slice(0, 300);
-    const activity = await Promise.all(
-      channels.map(async (channel) => {
-        const latest = await ctx.db
-          .query("messages")
-          .withIndex("by_room_channel_created", (q) =>
-            q.eq("roomId", room._id).eq("channel", channel),
-          )
-          .order("desc")
-          .first();
-        return latest
-          ? {
-              channel,
-              latestCreatedAt: latest.createdAt,
-              latestSessionId: latest.sessionId,
-            }
-          : null;
-      }),
-    );
+    const validChannels = new Set(channels);
+    const messages = await ctx.db
+      .query("messages")
+      .withIndex("by_room_created", (q) => q.eq("roomId", room._id))
+      .collect();
+    const activity = new Map<
+      string,
+      {
+        channel: string;
+        totalCount: number;
+        latestCreatedAt: number;
+        latestSessionId: string;
+        messages: Array<{
+          createdAt: number;
+          sessionId: string;
+          name: string;
+          color: string;
+        }>;
+      }
+    >();
 
-    return activity.filter(
-      (item): item is NonNullable<typeof item> => item !== null,
-    );
+    for (const message of messages) {
+      if (!message.channel || !validChannels.has(message.channel)) continue;
+      const existing = activity.get(message.channel) ?? {
+        channel: message.channel,
+        totalCount: 0,
+        latestCreatedAt: 0,
+        latestSessionId: "",
+        messages: [],
+      };
+      existing.totalCount += 1;
+      existing.latestCreatedAt = message.createdAt;
+      existing.latestSessionId = message.sessionId;
+      existing.messages.push({
+        createdAt: message.createdAt,
+        sessionId: message.sessionId,
+        name: message.name,
+        color: message.color,
+      });
+      activity.set(message.channel, existing);
+    }
+
+    return [...activity.values()];
   },
 });
 

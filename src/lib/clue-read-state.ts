@@ -1,5 +1,17 @@
 export type ClueReadState = Record<string, number>;
 
+export interface ClueMessageActivity {
+  channel: string;
+  latestCreatedAt: number;
+  latestSessionId: string;
+  messages: Array<{
+    createdAt: number;
+    sessionId: string;
+    name: string;
+    color: string;
+  }>;
+}
+
 const STORAGE_PREFIX = "cryptic-together-clue-reads";
 
 function storageKey(slug: string, sessionId: string) {
@@ -50,11 +62,20 @@ export function markClueThreadRead(
 
 export function hasUnreadClueMessage(
   state: ClueReadState,
-  activity: { channel: string; latestCreatedAt: number; latestSessionId: string },
+  activity: ClueMessageActivity,
   sessionId: string,
 ) {
-  return (
-    activity.latestSessionId !== sessionId &&
-    activity.latestCreatedAt > (state[activity.channel] ?? 0)
+  return getUnreadClueMessages(state, activity, sessionId).length > 0;
+}
+
+export function getUnreadClueMessages(
+  state: ClueReadState,
+  activity: ClueMessageActivity,
+  sessionId: string,
+) {
+  const readAt = state[activity.channel] ?? 0;
+  return activity.messages.filter(
+    (message) =>
+      message.sessionId !== sessionId && message.createdAt > readAt,
   );
 }

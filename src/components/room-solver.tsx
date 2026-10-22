@@ -29,7 +29,7 @@ import {
   firstEntryForCell,
 } from "@/lib/crossword";
 import {
-  hasUnreadClueMessage,
+  getUnreadClueMessages,
   markClueThreadRead,
   readClueReadState,
   type ClueReadState,
@@ -100,25 +100,28 @@ export function RoomSolver({ slug }: { slug: string }) {
       ),
     [clueActivity],
   );
-  const unreadEntries = useMemo(() => {
-    if (!identity || !clueReadState) return new Set<string>();
-    return new Set(
-      (clueActivity ?? [])
-        .filter((activity) =>
-          hasUnreadClueMessage(clueReadState, activity, identity.sessionId),
-        )
-        .filter(
-          (activity) =>
-            activity.channel !== effectiveActiveEntry,
-        )
-        .map((activity) => activity.channel),
-    );
-  }, [
-    clueActivity,
-    clueReadState,
-    effectiveActiveEntry,
-    identity,
-  ]);
+  const unreadMessagesByChannel = useMemo(() => {
+    const result = new Map<
+      string,
+      Array<{
+        createdAt: number;
+        sessionId: string;
+        name: string;
+        color: string;
+      }>
+    >();
+    if (!identity || !clueReadState) return result;
+    for (const activity of clueActivity ?? []) {
+      if (activity.channel === effectiveActiveEntry) continue;
+      const unread = getUnreadClueMessages(
+        clueReadState,
+        activity,
+        identity.sessionId,
+      );
+      if (unread.length) result.set(activity.channel, unread);
+    }
+    return result;
+  }, [clueActivity, clueReadState, effectiveActiveEntry, identity]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -629,6 +632,10 @@ export function RoomSolver({ slug }: { slug: string }) {
               <div className="clue-list">
                 {entries(clueDirection).map((entry) => {
                   const isActive = effectiveActiveEntry === entry.id;
+                  const activity = activityByChannel.get(entry.id);
+                  const unreadMessages =
+                    unreadMessagesByChannel.get(entry.id) ?? [];
+                  const totalComments = activity?.totalCount ?? 0;
                   return (
                     <div className="clue-item" key={entry.id}>
                       <button
@@ -644,19 +651,31 @@ export function RoomSolver({ slug }: { slug: string }) {
                           );
                         }}
                         aria-current={isActive ? "true" : undefined}
-                        aria-label={`${entry.humanNumber} ${stripMarkup(entry.clue)}, ${entry.length} letters${unreadEntries.has(entry.id) ? ", unread messages" : ""}`}
+                        aria-label={`${entry.humanNumber} ${stripMarkup(entry.clue)}, ${entry.length} letters, ${totalComments} ${totalComments === 1 ? "comment" : "comments"}${unreadMessages.length ? `, ${unreadMessages.length} unread` : ""}`}
                       >
                         <span className="clue-number">{entry.humanNumber}</span>
                         <span>
                           <span dangerouslySetInnerHTML={{ __html: entry.clue }} />
                         </span>
-                        {unreadEntries.has(entry.id) && (
+                        <span className="clue-chat-stats" aria-hidden="true">
                           <span
-                            className="unread-indicator"
-                            aria-hidden="true"
-                            title="Unread messages"
-                          />
-                        )}
+                            className="clue-comment-count"
+                            title={`${totalComments} ${totalComments === 1 ? "comment" : "comments"}`}
+                          >
+                            <MessageCircle size={12} />
+                            {totalComments}
+                          </span>
+                          {unreadMessages.map((unread, unreadIndex) => (
+                            <span
+                              className="unread-user-bubble"
+                              style={{ background: unread.color }}
+                              title={`${unread.name}: unread message`}
+                              key={`${unread.sessionId}-${unread.createdAt}-${unreadIndex}`}
+                            >
+                              {unread.name.slice(0, 2).toUpperCase()}
+                            </span>
+                          ))}
+                        </span>
                       </button>
                     </div>
                   );
