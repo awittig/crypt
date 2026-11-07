@@ -125,5 +125,96 @@ describe("realtime room functions", () => {
       }),
     ).rejects.toThrow("Clue not found");
   });
+
+  it("stores private read receipts without changing message responses", async () => {
+    const t = testApp.createTest();
+    const grace = {
+      sessionId: "session_grace_1234",
+      name: "Grace",
+      color: "#c05239",
+    };
+    await t.mutation(testApp.api.rooms.createRoom, {
+      slug,
+      sourceUrl: syntheticGuardianImport.sourceUrl,
+      puzzle,
+      ...ada,
+    });
+    await t.mutation(testApp.api.rooms.sendMessage, {
+      slug,
+      body: "I have 1 down.",
+      ...ada,
+    });
+    await t.mutation(testApp.api.rooms.sendMessage, {
+      slug,
+      body: "Could be a homophone.",
+      channel: "1-across",
+      ...ada,
+    });
+    const roomMessages = await t.query(testApp.api.rooms.getMessages, { slug });
+    const clueMessages = await t.query(testApp.api.rooms.getMessages, {
+      slug,
+      channel: "1-across",
+    });
+
+    await t.mutation(testApp.api.rooms.markMessagesRead, {
+      slug,
+      messageIds: [roomMessages[0]._id, clueMessages[0]._id],
+      ...grace,
+    });
+    await t.mutation(testApp.api.rooms.markMessagesRead, {
+      slug,
+      messageIds: [roomMessages[0]._id, clueMessages[0]._id],
+      ...grace,
+    });
+    await t.mutation(testApp.api.rooms.markMessagesRead, {
+      slug,
+      messageIds: [roomMessages[0]._id],
+      ...ada,
+    });
+
+    const reads = await t.run(async (ctx) =>
+      ctx.db.query("messageReads").collect(),
+    );
+    expect(reads).toHaveLength(2);
+    expect(reads).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          messageId: roomMessages[0]._id,
+          sessionId: grace.sessionId,
+          name: "Grace",
+        }),
+        expect.objectContaining({
+          messageId: clueMessages[0]._id,
+          sessionId: grace.sessionId,
+          name: "Grace",
+        }),
+      ]),
+    );
+    expect(
+      (await t.query(testApp.api.rooms.getMessages, { slug }))[0],
+    ).not.toHaveProperty("reads");
+    expect(
+      await t.query(testApp.api.rooms.getClueActivity, { slug }),
+    ).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ reads: expect.anything() }),
+      ]),
+    );
+
+    const otherSlug = "4fa85f6457174562b3fc2c963f66afa6";
+    await t.mutation(testApp.api.rooms.createRoom, {
+      slug: otherSlug,
+      sourceUrl: syntheticGuardianImport.sourceUrl,
+      puzzle,
+      ...grace,
+    });
+    await expect(
+      t.mutation(testApp.api.rooms.markMessagesRead, {
+        slug: otherSlug,
+        messageIds: [roomMessages[0]._id],
+        ...grace,
+      }),
+    ).rejects.toThrow("Message not found");
+  });
 });
 

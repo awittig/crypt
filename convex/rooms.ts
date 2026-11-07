@@ -262,6 +262,51 @@ export const getMessages = query({
   },
 });
 
+export const markMessagesRead = mutation({
+  args: {
+    ...participantArgs,
+    messageIds: v.array(v.id("messages")),
+  },
+  handler: async (ctx, args) => {
+    assertRoomSlug(args.slug);
+    assertSession(args.sessionId);
+    if (args.messageIds.length > 200) throw new Error("Too many messages.");
+    const room = await ctx.db
+      .query("rooms")
+      .withIndex("by_slug", (q) => q.eq("slug", args.slug))
+      .unique();
+    if (!room) throw new Error("Room not found.");
+
+    const name = normalizeGuestName(args.name);
+    const readAt = Date.now();
+    const seen = new Set<string>();
+    for (const messageId of args.messageIds) {
+      if (seen.has(messageId)) continue;
+      seen.add(messageId);
+      const message = await ctx.db.get(messageId);
+      if (!message || message.roomId !== room._id) {
+        throw new Error("Message not found.");
+      }
+      if (message.sessionId === args.sessionId) continue;
+
+      const existing = await ctx.db
+        .query("messageReads")
+        .withIndex("by_message_session", (q) =>
+          q.eq("messageId", messageId).eq("sessionId", args.sessionId),
+        )
+        .unique();
+      if (existing) continue;
+      await ctx.db.insert("messageReads", {
+        roomId: room._id,
+        messageId,
+        sessionId: args.sessionId,
+        name,
+        readAt,
+      });
+    }
+  },
+});
+
 export const getClueActivity = query({
   args: { slug: v.string() },
   handler: async (ctx, { slug }) => {

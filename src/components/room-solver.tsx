@@ -49,6 +49,7 @@ export function RoomSolver({ slug }: { slug: string }) {
   const updatePresence = useMutation(api.rooms.updatePresence);
   const updateCell = useMutation(api.rooms.updateCell);
   const sendMessage = useMutation(api.rooms.sendMessage);
+  const markMessagesRead = useMutation(api.rooms.markMessagesRead);
 
   const [identity, setIdentity] = useState<GuestIdentity | null>(null);
   const [joinName, setJoinName] = useState("");
@@ -72,6 +73,7 @@ export function RoomSolver({ slug }: { slug: string }) {
   const lastUpdateRef = useRef(0);
   const roomMessageEndRef = useRef<HTMLDivElement>(null);
   const clueMessageEndRef = useRef<HTMLDivElement>(null);
+  const recordedReadIdsRef = useRef(new Set<string>());
 
   const puzzle = roomData?.room.puzzle;
   const roomId = roomData?.room._id;
@@ -86,12 +88,19 @@ export function RoomSolver({ slug }: { slug: string }) {
   const effectiveActiveCell = activeCell ?? index?.cells[0]?.key;
   const effectiveActiveEntry =
     activeEntry ?? index?.cells[0]?.entryIds[0];
-  const roomMessages = useQuery(api.rooms.getMessages, { slug }) ?? [];
-  const clueMessages =
-    useQuery(api.rooms.getMessages, {
-      slug,
-      channel: effectiveActiveEntry,
-    }) ?? [];
+  const roomMessageData = useQuery(api.rooms.getMessages, { slug });
+  const clueMessageData = useQuery(api.rooms.getMessages, {
+    slug,
+    channel: effectiveActiveEntry,
+  });
+  const roomMessages = useMemo(
+    () => roomMessageData ?? [],
+    [roomMessageData],
+  );
+  const clueMessages = useMemo(
+    () => clueMessageData ?? [],
+    [clueMessageData],
+  );
   const clueActivity = useQuery(api.rooms.getClueActivity, { slug });
   const activityByChannel = useMemo(
     () =>
@@ -181,6 +190,31 @@ export function RoomSolver({ slug }: { slug: string }) {
   useEffect(() => {
     clueMessageEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [clueMessages.length]);
+
+  useEffect(() => {
+    if (!identity) return;
+    const visibleMessages = [
+      ...(showChat ? roomMessages : []),
+      ...clueMessages,
+    ];
+    const messageIds = visibleMessages
+      .filter(
+        (message) =>
+          message.sessionId !== identity.sessionId &&
+          !recordedReadIdsRef.current.has(message._id),
+      )
+      .map((message) => message._id);
+    if (!messageIds.length) return;
+
+    for (const messageId of messageIds) {
+      recordedReadIdsRef.current.add(messageId);
+    }
+    void markMessagesRead({ slug, ...identity, messageIds }).catch(() => {
+      for (const messageId of messageIds) {
+        recordedReadIdsRef.current.delete(messageId);
+      }
+    });
+  }, [clueMessages, identity, markMessagesRead, roomMessages, showChat, slug]);
 
   useEffect(() => {
     if (

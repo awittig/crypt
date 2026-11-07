@@ -59,6 +59,10 @@ export const api = {
       }>
     >("rooms:getClueActivity"),
     sendMessage: makeFunctionReference<"mutation">("rooms:sendMessage"),
+    markMessagesRead: makeFunctionReference<
+      "mutation",
+      GuestArgs & { messageIds: string[] } & Record<string, unknown>
+    >("rooms:markMessagesRead"),
   },
 };
 

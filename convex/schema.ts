@@ -39,5 +39,15 @@ export default defineSchema({
   })
     .index("by_room_created", ["roomId", "createdAt"])
     .index("by_room_channel_created", ["roomId", "channel", "createdAt"]),
+
+  messageReads: defineTable({
+    roomId: v.id("rooms"),
+    messageId: v.id("messages"),
+    sessionId: v.string(),
+    name: v.string(),
+    readAt: v.number(),
+  })
+    .index("by_message_session", ["messageId", "sessionId"])
+    .index("by_room_read", ["roomId", "readAt"]),
 });
 
